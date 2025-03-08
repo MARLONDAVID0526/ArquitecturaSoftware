@@ -17,25 +17,34 @@ class Order:
         self.is_valid = all(item['stock'] >= item['quantity'] for item in self.items)
         return self.is_valid
 
-# 📌 Controlador (Maneja la lógica y la comunicación)
+# ✅ GRASP Controller: Encapsula la lógica de negocio y coordina el procesamiento de la orden
 class OrderController:
-    def __init__(self):
-        self.orders = []
+    def __init__(self, items):
+        self.items = items
 
-    def create_order(self, user, items):
-        order = Order(user, items)
-        self.orders.append(order)
-        return order  # Devuelve la orden para la vista
+    def process_order(self, user, product_name, quantity):
+        # Buscar el producto seleccionado
+        selected_item = next((item for item in self.items if item["name"] == product_name), None)
+        if not selected_item:
+            return {"success": False, "message": "Producto no encontrado."}
 
-    def process_order(self, order):
+        order = Order(user, [{
+            "name": selected_item["name"],
+            "price": selected_item["price"],
+            "quantity": quantity,
+            "stock": selected_item["stock"]
+        }])
         order.calculate_total()
-        return order.validate_order(), order.total  # Retorna los datos en lugar de imprimirlos
+        if order.validate_order():
+            return {"success": True, "message": f"✅ Pedido confirmado para {user} por un total de ${order.total}"}
+        else:
+            return {"success": False, "message": "❌ Pedido inválido: No hay suficiente stock."}
 
-# 📌 Vista / Interfaz Gráfica (Interactúa con el usuario)
+# Interfaz Gráfica (GUI)
 class OrderGUI:
-    def __init__(self, root):
-        self.controller = OrderController()
+    def __init__(self, root, controller):
         self.root = root
+        self.controller = controller
         self.root.title("Sistema de Pedidos")
 
         # Entrada del usuario
@@ -44,12 +53,7 @@ class OrderGUI:
         self.user_entry.grid(row=0, column=1)
 
         # Lista de productos
-        self.items = [
-            {"name": "Laptop", "price": 1000, "stock": 5},
-            {"name": "Mouse", "price": 50, "stock": 3},
-            {"name": "Teclado", "price": 80, "stock": 2}
-        ]
-
+        self.items = controller.items
         tk.Label(root, text="Producto:").grid(row=1, column=0)
         self.product_var = tk.StringVar()
         self.product_var.set(self.items[0]["name"])
@@ -60,41 +64,35 @@ class OrderGUI:
         self.quantity_entry = tk.Entry(root)
         self.quantity_entry.grid(row=2, column=1)
 
-        # Botón para procesar pedido
+        # Botón para procesar el pedido
         self.process_button = tk.Button(root, text="Realizar Pedido", command=self.process_order)
         self.process_button.grid(row=3, columnspan=2)
 
-    # 📌 Método que maneja la interacción con la UI
     def process_order(self):
         user = self.user_entry.get()
         product_name = self.product_var.get()
-        
-        # Validar entrada de cantidad
         try:
             quantity = int(self.quantity_entry.get())
         except ValueError:
             messagebox.showerror("Error", "Ingrese una cantidad válida.")
             return
 
-        # Buscar producto seleccionado
-        selected_item = next((item for item in self.items if item["name"] == product_name), None)
-        if selected_item:
-            order_items = [{"name": selected_item["name"], "price": selected_item["price"], "quantity": quantity, "stock": selected_item["stock"]}]
-            
-            # 📌 Se usa el Controller para manejar la orden
-            order = self.controller.create_order(user, order_items)
-            is_valid, total = self.controller.process_order(order)
-
-            # 📌 La Vista solo muestra resultados, no maneja la lógica
-            if is_valid:
-                messagebox.showinfo("Pedido Confirmado", f"✅ Pedido confirmado para {user} por un total de ${total}")
-            else:
-                messagebox.showerror("Error", "❌ Pedido inválido: No hay suficiente stock.")
+        # Se delega la lógica de negocio al GRASP Controller
+        result = self.controller.process_order(user, product_name, quantity)
+        if result["success"]:
+            messagebox.showinfo("Pedido Confirmado", result["message"])
         else:
-            messagebox.showerror("Error", "Producto no encontrado.")
+            messagebox.showerror("Error", result["message"])
 
-# 🚀 Ejecutar la GUI
+# 🚀 Ejecución de la aplicación con el GRASP Controller
 if __name__ == "__main__":
+    items = [
+        {"name": "Laptop", "price": 1000, "stock": 5},
+        {"name": "Mouse", "price": 50, "stock": 3},
+        {"name": "Teclado", "price": 80, "stock": 2}
+    ]
+    
+    controller = OrderController(items)
     root = tk.Tk()
-    app = OrderGUI(root)
+    app = OrderGUI(root, controller)
     root.mainloop()
