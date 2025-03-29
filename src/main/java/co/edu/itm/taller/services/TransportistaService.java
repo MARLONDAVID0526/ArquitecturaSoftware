@@ -31,8 +31,11 @@ public class TransportistaService {
 
     public List<Pedido> consultarEntregas() {
         List<Entregas> entregas = entregasRepository.findAll();
-        return  entregas.stream().flatMap(entrega ->
-                entregasRepository.findById(entrega.getId())
-        ).toList();
+        return entregas.stream().flatMap(entrega ->
+                pedidosRepository.findById(entrega.getId()).stream()).toList();
+    }
+
+    public void actualizarPedido(Pedido pedido) {
+        pedidosRepository.save(pedido);
     }
 }
